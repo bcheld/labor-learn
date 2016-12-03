@@ -26,5 +26,5 @@ firm = [[
 print(np.sum(start[0:3]))
 print(firm)
 model1 = model.Model(*start[0:])
-output = model1.prod(firm)
+output = model1.prod(*firm)
 
