@@ -55,6 +55,7 @@ class Model(object):
         # expected input for role 1 and 2
         e_n1 = self.p1 @ n1
         e_n2 = self.p2 @ n2
+
         # expected input variance for roles 1 and 2
         v_n1 = self.v1_inpt @ n1
         v_n2 = self.v2_inpt @ n2
@@ -64,7 +65,40 @@ class Model(object):
         # return expected output
         return self.a * e_n1 ** self.beta * e_n2 ** (1-self.beta) * adj_1 * adj_2
 
+    # solve for wages
+    def soln(self):
+        wage = np.ones(10)
+        tol = 0.1
+
     """
     Need to define functions for production and profits given staffing
     Do something to solve for wages and staffing levels by firm type
     """
+
+    """
+    solves for optimal allocation of workers within a firm given staff
+    1. start with low and neg type workers if possible
+    2. fill certainty according to production share
+    3. add other workers according to max marginal prod
+    4. check for gains to switching other workers
+    5. repeat until all workers allocated
+    """
+
+    def allocate(self,
+              n_new,    # new type workers
+              n_low,    # low type workers
+              n_high,   # high type workers
+              n_neg,    # neg type workers
+              n_pos,    # pos type workers
+              ):
+        # low and neg type can only work in low role
+        x = (0, n_low, 0, n_neg, 0, 0, 0, 0, 0, 0)
+        while x[0] + x[5] < n_new:
+            low = x[0] += 1
+            high = x[5] += 1
+            if self.prod(low) > self.prod(high):
+                x = low
+            else:
+                x = high
+
+
