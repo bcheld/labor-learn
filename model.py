@@ -77,11 +77,14 @@ class Model(object):
 
     """
     solves for optimal allocation of workers within a firm given staff
-    1. start with low and neg type workers if possible
-    2. fill certainty according to production share
-    3. add other workers according to max marginal prod
-    4. check for gains to switching other workers
-    5. repeat until all workers allocated
+    1. start with low and neg type workers if any (can only work low job)
+    2. fill high to start
+    3. calculate gain from adding new to low vs. adding pos to high
+    4. iterate until new and pos type workers assigned
+    5. if all pos type assigned to low fill from high
+
+    note: at most one worker type can work both roles in competitive eq.
+    proof: tbd
     """
 
     def allocate(self,
@@ -91,8 +94,8 @@ class Model(object):
               n_neg,    # neg type workers
               n_pos,    # pos type workers
               ):
-        # low and neg type can only work in low role
-        x = (0, n_low, 0, n_neg, 0, 0, 0, 0, 0, 0)
+        # low and neg type can only work in low role, fill high at top to start
+        x = [0, n_low, 0, n_neg, 0, 0, 0, n_high, 0, 0]
         while x[0] + x[5] < n_new:
             low = x[0] += 1
             high = x[5] += 1
@@ -100,5 +103,3 @@ class Model(object):
                 x = low
             else:
                 x = high
-
-
