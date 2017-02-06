@@ -1,7 +1,14 @@
+"""
+Filename: learn_main.py
+
+Author: Brian Held
+
+A script to initialize various analyses of the learning model outlined in Ch. 2 of my thesis
+
+"""
 import model
 import numpy as np
-import sys
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 start = (
     0.20,   # share of lowest ability (permanently unemployed)
@@ -31,6 +38,8 @@ model1 = model.Model(*start)
 output = model1.prod(*firm)
 model2 = model.Model()
 
+# named tuple (from collections)
+
 grid2 = np.array([[39, 0, 0, 0, 0, 390, 0, 0, 0, 0],
                  [40, 0, 0, 0, 0, 390, 0, 0, 0, 0],
                  [0, 40, 0, 0, 0, 0, 0, 39, 0, 0],
@@ -47,7 +56,11 @@ grid3 = np.array([[20, 20, 0, 0, 0, 200, 0, 0, 0, 0],
                  [0, 10, 0, 0, 0, 0, 0, 10, 0, 0]])
 
 grid = 100*np.ones(10)
+
+
 test = model1.prod(*grid3.T)
+
+
 print(test)
 print(test[1]-test[0])
 print(test[3]-test[2])
@@ -61,16 +74,11 @@ want to show
 3. comparative statics
 
 
-staffing algo
-1. fill certain
-2. fill neg type
-3. fill pos type
-4. fill new
 '''
 
 
-
-
+# itertools?
+'''
 x = np.zeros(10)
 xhi = np.zeros(10)
 highval = -1;
@@ -93,3 +101,5 @@ for i in range(0, 10**10):
 # solve
 def newf(alloc):
     reverse =
+
+'''
