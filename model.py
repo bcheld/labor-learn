@@ -21,8 +21,9 @@ class Model(object):
     gamma_m : population share of mid ability (only produces in low job type)
     gamma_h : population share of high ability (produces in all job types)
     a       : production function constant
-    beta    : lower tier job share of output
+    beta    : low type role share of output
     r       : discount rate
+    learn   : arrival rate of ability signals
 
     Attributes
     ----------
@@ -49,9 +50,9 @@ class Model(object):
     is first (indexed [0:4]) and high is last (indexed [5:9])
     """
 
-    def __init__(self, gamma_l=0.2, gamma_m=0.6, gamma_h=0.2, a=1, beta=0.6, r=0.03):
+    def __init__(self, gamma_l=0.2, gamma_m=0.6, gamma_h=0.2, a=1, beta=0.6, r=0.03, learn=0.1):
         self.gam_l, self.gam_m, self.gam_h = gamma_l, gamma_m, gamma_h
-        self.a, self.beta, self.r = a, beta, r
+        self.a, self.beta, self.r, self.learn = a, beta, r, learn
 
         self.p1 = np.array([self.gam_m + self.gam_h, 1, 1, self.gam_m / (self.gam_l + self.gam_m), 1])
         self.p2 = np.array([self.gam_h, 0, 1, 0, self.gam_h / (self.gam_h + self.gam_m)])
@@ -117,6 +118,8 @@ class Model(object):
         -------
         alloc : array_like(int)
             Returns the optimal assignment of workers (length 10)
+        prod : array_like(float)
+            Returns the output associated with optimal assignment
 
         Algorithm
         ---------
@@ -136,6 +139,16 @@ class Model(object):
         # Algorithm step 1&2
         alloc = [0, n_low, 0, n_neg, 0, 0, 0, n_high, 0, 0]
         # Algorithm step 3
+        if n_low + n_neg == 0:
+            if n_new > 0:
+                alloc[0] += 1
+            else:
+                alloc[4] += 1
+        if n_high == 0:
+            if n_pos > 0:
+                alloc[9] += 1
+            else:
+                alloc[5] += 1
         while alloc[0] + alloc[5] < n_new and alloc[4] + alloc[9] < n_pos:
             low = np.copy(alloc)
             low[0] += 1
@@ -156,7 +169,7 @@ class Model(object):
             else:
                 alloc = np.copy(high)
         # Algorithm step 4b - excess pos type
-        while alloc[4] + alloc[9] < n_new:
+        while alloc[4] + alloc[9] < n_pos:
             low = np.copy(alloc)
             low[4] += 1
             high = np.copy(alloc)
@@ -173,22 +186,89 @@ class Model(object):
             alloc = np.copy(low)
             low[2] += 1
             low[7] -= 1
-        return alloc
+        return alloc, self.prod(*alloc)
 
+    def simt(self, n_new, n_low, n_high, n_neg, n_pos, time=0):
+        """
+        Method to simulate worker transitions and output over t periods starting with an initial worker state
 
-    """
-    Need to define functions for production and profits given staffing
-    Do something to solve for wages and staffing levels by firm type
-    """
+        Parameters
+        ----------
+        time   : number of periods to simulate (simulate until convergence if t=0)
+        n_new  : total new type workers at t=0
+        n_low  : total low type workers at t=0
+        n_high : total high type workers at t=0
+        n_neg  : total neg type workers at t=0
+        n_pos  : total pos type workers at t=0
 
-    """
-    solves for optimal allocation of workers within a firm given staff
-    1. start with low and neg type workers if any (can only work low job)
-    2. fill high to start
-    3. calculate gain from adding new to low vs. adding pos to high
-    4. iterate until new and pos type workers assigned
-    5. if all pos type assigned to low fill from high
+        Returns
+        -------
+        wkrs : array_like(int, t x 5)
+            State vector of workers for each time period
+        alloc : array_like(int, t x 10)
+            Returns the optimal assignment of workers (length 10) for each time period
+        prod : array_like(float, length t)
+            Returns the output associated with optimal assignment for each time period
 
-    note: at most one worker type can work both roles in competitive eq.
-    proof: tbd
-    """
+        Notes
+        -----
+        The uncertainty resolves at the aggregate level. There is opportunity to do firm level simulation
+        in which realized output updates the firm-level beliefs about individual worker ability.
+
+        """
+        # Positive signal transition matrix - low job
+        wintrans1 = np.array([[-1, 0, 0, 0, 1],
+                             [0, 0, 0, 0, 0],
+                             [0, 0, 0, 0, 0],
+                             [0, 1, 0, -1, 0],
+                             [0, 0, 0, 0, 0]])
+        # Positive signal transition matrix - high job
+        wintrans2 = np.array([[-1, 0, 1, 0, 0],
+                             [0, 0, 0, 0, 0],
+                             [0, 0, 0, 0, 0],
+                             [0, 0, 0, 0, 0],
+                             [0, 0, 1, 0, -1]])
+        # Negative signal transition matrix - low job
+        losetrans1 = np.array([[-1, 0, 0, 0, 0],
+                             [0, 0, 0, 0, 0],
+                             [0, 0, 0, 0, 0],
+                             [0, 0, 0, -1, 0],
+                             [0, 0, 0, 0, 0]])
+        # Negative signal transition matrix - high job
+        losetrans2 = np.array([[-1, 0, 0, 1, 0],
+                             [0, 0, 0, 0, 0],
+                             [0, 0, 0, 0, 0],
+                             [0, 0, 0, 0, 0],
+                             [0, 1, 0, 0, -1]])
+        death = 0.05
+        wkrs = np.zeros([2,5], dtype=np.int32)
+        alloc = np.zeros([2,10], dtype=np.int32)
+        prod = np.zeros([2])
+        unemployed = np.zeros([2], dtype=np.int32)
+        wkrs[0] = np.array([n_new, n_low, n_high, n_neg, n_pos])
+        alloc[0], prod[0] = self.allocate(*wkrs[0])
+        t = 0
+        flag = 0
+        while flag == 0:
+            t += 1
+            if t > 1:
+                wkrs = np.append(wkrs, np.zeros((1, 5), dtype=np.int32), axis=0)
+                alloc = np.append(alloc, np.zeros((1, 10), dtype=np.int32), axis=0)
+                prod = np.append(prod, np.zeros(1), axis=0)
+                unemployed = np.append(unemployed, np.zeros(1, dtype=np.int32), axis=0)
+            # resolve uncertainty
+            learned = np.random.binomial(alloc[t-1], self.learn, size=10)
+            win1 = np.random.binomial(learned[0:5], self.p1, size=5)
+            chg1 = win1 @ wintrans1 + (learned[0:5]-win1) @ losetrans1
+            win2 = np.random.binomial(learned[5:10], self.p2, size=5)
+            chg2 = win2 @ wintrans2 + (learned[5:10]-win2) @ losetrans2
+            wkrs[t] = chg1 + chg2 + wkrs[t-1]
+            dead = np.random.binomial(wkrs[t], death, size=5)
+            dead_unemployed = np.random.binomial(unemployed[t-1], death)
+            unemployed[t] = unemployed[t-1] - np.sum((learned[0:5]-win1) @ losetrans1) - dead_unemployed
+            wkrs[t] -= dead
+            wkrs[t, 0] += np.sum(dead) + dead_unemployed
+            alloc[t], prod[t] = self.allocate(*wkrs[t])
+            if t == time or (t > time and sum(np.subtract(wkrs[t], wkrs[t-1])) <= max(5, sum(wkrs[t]) * 0.05)):
+                flag = 1
+        return wkrs, alloc, prod

@@ -32,13 +32,53 @@ firm = (
     0    # workers of type 'pos' assigned to role 2
 )
 
+# 1. Show whether 1 or multiple firms exist in simple case
+# 2. Show path over time of workers at single firm
+
+
+"""
+Code for when allocate function is vectorized:
+
+wkrs = np.repeat(100,5)
+output = model1.allocate(*wkrs)[1]
+firm1 = np.random.randint(1,99,size=(10,5))
+firm2 = np.subtract(100, firm1)
+f1, p1 = model1.allocate(*firm1.T)
+"""
+
 print(np.sum(start[0:3]))
 print(firm)
 model1 = model.Model(*start)
 output = model1.prod(*firm)
 model2 = model.Model()
 
-# named tuple (from collections)
+
+wkrs = np.repeat(100,5)
+wkrs = np.append([wkrs],[np.repeat(99,5)],axis=0)
+output = model1.allocate(*wkrs[0])[1]
+output = np.append([output], [output], axis=0)
+
+for x in range(100):
+    firm1 = np.random.randint(1,99,size=5)
+    firm2 = np.subtract(100, firm1)
+    f1, p1 = model1.allocate(*firm1)
+    f2, p2 = model1.allocate(*firm2)
+    wkrs = np.append(wkrs, [firm1], axis=0)
+    output = np.append(output, [p1 + p2], axis=0)
+
+
+'''
+print(np.sum(start[0:3]))
+print(firm)
+model1 = model.Model(*start)
+output = model1.prod(*firm)
+model2 = model.Model()
+'''
+a,b,c = model1.simt(100,0,0,0,0,10)
+
+import pandas as pd
+df = pd.DataFrame(wkrs)
+df['output'] = output
 
 grid2 = np.array([[39, 0, 0, 0, 0, 390, 0, 0, 0, 0],
                  [40, 0, 0, 0, 0, 390, 0, 0, 0, 0],
@@ -55,8 +95,8 @@ grid3 = np.array([[20, 20, 0, 0, 0, 200, 0, 0, 0, 0],
                  [1, 0, 0, 0, 0, 10, 0, 0, 0, 0],
                  [0, 10, 0, 0, 0, 0, 0, 10, 0, 0]])
 
-grid = 100*np.ones(10)
-
+# one extreme  1    8   39   93   67 - new and high go to one  firm
+# 663, 498, 623, 973, 444
 
 test = model1.prod(*grid3.T)
 
